@@ -8,7 +8,7 @@
 import streamlit as st
 import tempfile
 from services.speech_to_text import WhisperLocalSTT
-
+from services.llm import AiAssistant
 
 class App:
     def __init__(self, **services):
@@ -63,7 +63,12 @@ class App:
                 })
 
                 # Aqui entra futuramente:
-                # response = self.llm.ask(user_text)
+                response = self.llm.ask(st.session_state.messages)
+
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": response
+                })
 
                 # ---------- Reset ----------
                 st.session_state.transcription = None
@@ -73,10 +78,11 @@ class App:
 
 if __name__ == "__main__":
     stt = WhisperLocalSTT()
+    llm = AiAssistant()
 
     app = App(
         speech_to_text=stt,
-        large_language_model=None,
+        large_language_model=llm,
         talk_to_speech=None
     )
 
