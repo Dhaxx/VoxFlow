@@ -7,8 +7,7 @@
 
 import streamlit as st
 import tempfile
-from services.speech_to_text import WhisperLocalSTT
-from services.llm import AiAssistant
+from services import *
 
 class App:
     def __init__(self, **services):
@@ -34,6 +33,12 @@ class App:
             with st.chat_message(msg["role"]):
                 st.write(msg["content"])
 
+                if msg['role'] == "assistant" and msg.get("audio_path"):
+                    st.audio(
+                        msg["audio_path"],
+                        format="audio/mpeg"
+                    )
+
         # ---------- Áudio ----------
         audio_value = st.audio_input(
             "Grave sua mensagem:",
@@ -46,7 +51,8 @@ class App:
                 temp.flush()
                 audio_path = temp.name
 
-            st.session_state.transcription = self.stt.transcribe(audio_path)
+            with st.spinner("Transcrevendo áudio... 🎧"):
+                st.session_state.transcription = self.stt.transcribe(audio_path)
 
         # ---------- Texto + Envio (SÓ SE HOUVER ÁUDIO) ----------
         if st.session_state.transcription:
@@ -62,13 +68,16 @@ class App:
                     "content": user_text
                 })
 
-                # Aqui entra futuramente:
-                response = self.llm.ask(st.session_state.messages)
+                with st.spinner("Pensando na resposta... 🤖"):
+                    response = self.llm.ask(st.session_state.messages)
 
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": response
-                })
+                    audio_path = self.tts.syntethize(response)
+
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "audio_path": audio_path,
+                        "content": response,
+                    })
 
                 # ---------- Reset ----------
                 st.session_state.transcription = None
@@ -79,11 +88,12 @@ class App:
 if __name__ == "__main__":
     stt = WhisperLocalSTT()
     llm = AiAssistant()
+    tts = TextToSpeechService()
 
     app = App(
         speech_to_text=stt,
         large_language_model=llm,
-        talk_to_speech=None
+        talk_to_speech=tts
     )
 
     app.run()
